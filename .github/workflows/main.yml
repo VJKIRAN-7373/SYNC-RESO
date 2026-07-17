@@ -11,11 +11,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
@@ -25,9 +35,18 @@ jobs:
       - name: Build EXE with PyInstaller
         run: |
           pyinstaller --onefile --noconsole --name sync_reso ui\main.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify build output
+        run: |
+          if (-not (Test-Path "dist\sync_reso.exe")) {
+            Write-Error "Build failed: sync_reso.exe not found"
+            exit 1
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: sync_reso-exe
           path: dist\sync_reso.exe
+          retention-days: 30
